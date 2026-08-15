@@ -184,3 +184,57 @@ def test_smart_nonlist_pkce_methods():
     )
     assert v.valid is False
     assert v.pkce_s256 is False
+
+
+# --- registration_endpoint (RFC 7591 dynamic client registration) -----------
+# Optional in SMART App Launch. Recorded for consumers that want to know
+# whether they can self-register, but deliberately NOT part of `valid`.
+
+_CONFORMANT = {
+    "token_endpoint": "https://ex.org/token",
+    "authorization_endpoint": "https://ex.org/auth",
+    "code_challenge_methods_supported": ["S256"],
+}
+
+
+def test_registration_endpoint_captured_when_present():
+    v = parse_smart_config({**_CONFORMANT, "registration_endpoint": "https://ex.org/register"})
+    assert v.has_registration_endpoint is True
+    assert v.registration_endpoint == "https://ex.org/register"
+
+
+def test_registration_endpoint_absent_defaults_to_false_and_none():
+    v = parse_smart_config(_CONFORMANT)
+    assert v.has_registration_endpoint is False
+    assert v.registration_endpoint is None
+
+
+def test_registration_endpoint_does_not_affect_validity():
+    """The regression that matters: L6 pass/fail must not move.
+
+    registration_endpoint is optional in SMART. If it leaked into `valid`,
+    every conformant server that omits it would start failing L6 and the
+    published endpoint-liveness rate would shift for a spec reason that does
+    not exist.
+    """
+    with_reg = parse_smart_config({**_CONFORMANT, "registration_endpoint": "https://ex.org/register"})
+    without = parse_smart_config(_CONFORMANT)
+    assert with_reg.valid is True and without.valid is True
+    assert with_reg.reason == without.reason
+
+    broken = {"token_endpoint": "https://ex.org/token"}
+    assert parse_smart_config(broken).valid is False
+    assert parse_smart_config({**broken, "registration_endpoint": "https://ex.org/register"}).valid is False
+
+
+def test_non_http_registration_endpoint_is_rejected():
+    for bad in ["", "ftp://ex.org/reg", "/relative/path", None, 42, {"url": "x"}]:
+        v = parse_smart_config({**_CONFORMANT, "registration_endpoint": bad})
+        assert v.has_registration_endpoint is False, bad
+        assert v.registration_endpoint is None, bad
+        assert v.valid is True, bad  # still conformant; reg is optional
+
+
+def test_non_dict_body_still_returns_registration_defaults():
+    v = parse_smart_config("not a dict")
+    assert v.has_registration_endpoint is False and v.registration_endpoint is None

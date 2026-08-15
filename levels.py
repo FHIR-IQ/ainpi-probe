@@ -93,6 +93,9 @@ class ProbeResult:
     l6_smart_pkce_s256: bool | None = None
     l6_smart_error: str | None = None
     l6_smart_grant_types: list[str] = field(default_factory=list)
+    # Dynamic client registration, recorded but not part of the L6 pass/fail.
+    l6_smart_has_registration: bool | None = None
+    l6_smart_registration_endpoint: str | None = None
 
     l7_unauth_search_status: int | None = None
     l7_unauth_search_pass: bool | None = None
@@ -370,6 +373,8 @@ async def probe_endpoint(
         result.l6_smart_valid = smart.valid
         result.l6_smart_pkce_s256 = smart.pkce_s256
         result.l6_smart_grant_types = smart.grant_types
+        result.l6_smart_has_registration = smart.has_registration_endpoint
+        result.l6_smart_registration_endpoint = smart.registration_endpoint
         result.l6_smart_error = smart.reason
         if smart.valid:
             result.highest_level_reached = max(result.highest_level_reached, 6)
