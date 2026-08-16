@@ -41,6 +41,15 @@ class SmartConfigVerdict:
     # it can self-register needs somewhere to POST.
     has_registration_endpoint: bool = False
     registration_endpoint: str | None = None
+    # SMART User-access Brands (SMART App Launch 2.2). A server SHOULD advertise
+    # the URL of its Brand Bundle here, which is the only automated way to
+    # discover the Organization names behind an endpoint. Adoption looks very
+    # low, so recording absence is the point: it makes the adoption curve
+    # measurable instead of anecdotal. SHOULD, not SHALL, so it never gates
+    # `valid`.
+    has_user_access_brands: bool = False
+    user_access_brand_bundle: str | None = None
+    user_access_brand_identifier: str | None = None
     reason: str | None = None
 
 
@@ -130,6 +139,13 @@ def parse_smart_config(obj: Any) -> SmartConfigVerdict:
     reg = obj.get("registration_endpoint")
     has_reg = isinstance(reg, str) and reg.startswith(("http://", "https://"))
 
+    brands = obj.get("user_access_brand_bundle")
+    has_brands = isinstance(brands, str) and brands.startswith(("http://", "https://"))
+    # The identifier is only required when the bundle carries more than one
+    # brand, so it can legitimately be absent alongside a valid bundle URL.
+    brand_id = obj.get("user_access_brand_identifier")
+    brand_id = brand_id if isinstance(brand_id, str) and brand_id else None
+
     pkce_methods = obj.get("code_challenge_methods_supported") or []
     pkce_s256 = isinstance(pkce_methods, list) and "S256" in pkce_methods
 
@@ -160,6 +176,9 @@ def parse_smart_config(obj: Any) -> SmartConfigVerdict:
         grant_types=[g for g in grant_types if isinstance(g, str)],
         has_registration_endpoint=has_reg,
         registration_endpoint=reg if has_reg else None,
+        has_user_access_brands=has_brands,
+        user_access_brand_bundle=brands if has_brands else None,
+        user_access_brand_identifier=brand_id,
         reason=reason,
     )
 

@@ -96,6 +96,11 @@ class ProbeResult:
     # Dynamic client registration, recorded but not part of the L6 pass/fail.
     l6_smart_has_registration: bool | None = None
     l6_smart_registration_endpoint: str | None = None
+    # SMART User-access Brands: the only automated route from an endpoint to
+    # the organization names behind it. Recorded, not gated.
+    l6_smart_has_brands: bool | None = None
+    l6_smart_brand_bundle: str | None = None
+    l6_smart_brand_identifier: str | None = None
 
     l7_unauth_search_status: int | None = None
     l7_unauth_search_pass: bool | None = None
@@ -375,6 +380,9 @@ async def probe_endpoint(
         result.l6_smart_grant_types = smart.grant_types
         result.l6_smart_has_registration = smart.has_registration_endpoint
         result.l6_smart_registration_endpoint = smart.registration_endpoint
+        result.l6_smart_has_brands = smart.has_user_access_brands
+        result.l6_smart_brand_bundle = smart.user_access_brand_bundle
+        result.l6_smart_brand_identifier = smart.user_access_brand_identifier
         result.l6_smart_error = smart.reason
         if smart.valid:
             result.highest_level_reached = max(result.highest_level_reached, 6)

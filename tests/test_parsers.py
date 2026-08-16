@@ -238,3 +238,50 @@ def test_non_http_registration_endpoint_is_rejected():
 def test_non_dict_body_still_returns_registration_defaults():
     v = parse_smart_config("not a dict")
     assert v.has_registration_endpoint is False and v.registration_endpoint is None
+
+
+# --- SMART User-access Brands (SMART App Launch 2.2) ------------------------
+# user_access_brand_bundle points at the Brand Bundle, which is the only
+# automated route from an endpoint to the organization names behind it.
+# SHOULD, not SHALL, so it must never gate L6.
+
+
+def test_brand_bundle_captured_when_present():
+    v = parse_smart_config({
+        **_CONFORMANT,
+        "user_access_brand_bundle": "https://ex.org/brands.json",
+        "user_access_brand_identifier": "urn:oid:1.2.3|brand-1",
+    })
+    assert v.has_user_access_brands is True
+    assert v.user_access_brand_bundle == "https://ex.org/brands.json"
+    assert v.user_access_brand_identifier == "urn:oid:1.2.3|brand-1"
+
+
+def test_brand_identifier_may_be_absent_with_a_valid_bundle():
+    """The identifier is only required when the bundle holds >1 brand."""
+    v = parse_smart_config({**_CONFORMANT, "user_access_brand_bundle": "https://ex.org/b.json"})
+    assert v.has_user_access_brands is True
+    assert v.user_access_brand_identifier is None
+
+
+def test_brands_absent_is_the_common_case_and_still_valid():
+    """Observed on every real endpoint sampled in 2026-08. Absence is normal."""
+    v = parse_smart_config(_CONFORMANT)
+    assert v.has_user_access_brands is False
+    assert v.user_access_brand_bundle is None
+    assert v.valid is True
+
+
+def test_brands_does_not_affect_validity():
+    with_b = parse_smart_config({**_CONFORMANT, "user_access_brand_bundle": "https://ex.org/b.json"})
+    without = parse_smart_config(_CONFORMANT)
+    assert with_b.valid == without.valid == True
+    assert with_b.reason == without.reason
+
+
+def test_non_http_brand_bundle_is_rejected():
+    for bad in ["", "not-a-url", "/relative", None, 42, ["x"]]:
+        v = parse_smart_config({**_CONFORMANT, "user_access_brand_bundle": bad})
+        assert v.has_user_access_brands is False, bad
+        assert v.user_access_brand_bundle is None, bad
+        assert v.valid is True, bad
