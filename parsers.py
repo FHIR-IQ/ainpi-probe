@@ -34,6 +34,13 @@ class SmartConfigVerdict:
     has_authorization_endpoint: bool
     pkce_s256: bool
     grant_types: list[str]
+    # Dynamic client registration (RFC 7591). Optional in SMART App Launch, so
+    # it is recorded but deliberately excluded from `valid` — gating on it
+    # would fail conformant servers and silently move the published L6 rate.
+    # The URL itself is kept, not just a boolean: a consumer deciding whether
+    # it can self-register needs somewhere to POST.
+    has_registration_endpoint: bool = False
+    registration_endpoint: str | None = None
     reason: str | None = None
 
 
@@ -120,6 +127,9 @@ def parse_smart_config(obj: Any) -> SmartConfigVerdict:
     has_token = isinstance(token, str) and token.startswith(("http://", "https://"))
     has_auth = isinstance(auth, str) and auth.startswith(("http://", "https://"))
 
+    reg = obj.get("registration_endpoint")
+    has_reg = isinstance(reg, str) and reg.startswith(("http://", "https://"))
+
     pkce_methods = obj.get("code_challenge_methods_supported") or []
     pkce_s256 = isinstance(pkce_methods, list) and "S256" in pkce_methods
 
@@ -148,6 +158,8 @@ def parse_smart_config(obj: Any) -> SmartConfigVerdict:
         has_authorization_endpoint=has_auth,
         pkce_s256=pkce_s256,
         grant_types=[g for g in grant_types if isinstance(g, str)],
+        has_registration_endpoint=has_reg,
+        registration_endpoint=reg if has_reg else None,
         reason=reason,
     )
 
